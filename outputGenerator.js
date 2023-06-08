@@ -11,37 +11,47 @@ const createCsvWriter = require('csv-writer').createObjectCsvWriter;
     let paused = false;
 
     async function processDataAndFillCSV() {
-    // Read the input CSV file
-    const inputFilePath = 'example.csv'; // Replace with the path to your input CSV file
-    const inputData = [];
+        // Read the input CSV file
+        const fname = 'example.csv'; // Replace with the path to your input CSV file
+        const inputData = [];
 
-    fs.createReadStream(inputFilePath)
-        .pipe(csv())
-        .on('data', (row) => {
-        inputData.push(row);
+        const csvPipe = fs.createReadStream(fname).pipe(csv());
+
+        csvPipe.on('data', (row) => {
+            inputData.push(row);
         })
-        .on('end', async () => {
-        // Process the data and add output in another column
-        const processedData = await Promise.all(
-            inputData.map(async (row) => {
-            const inputValue = row.GSTIN; // Replace 'InputColumn' with the name of your input column in the CSV
-            const outputValue = await performTask(inputValue); // Perform your desired task using Puppeteer
+            .on('end', async () => {
+                // Process the data and add output in another column
+                const processedData = await Promise.all(
+                    inputData.map(async (row) => {
+                        const inputValue = row.GSTIN; // Replace 'InputColumn' with the name of your input column in the CSV
+                        const outputValue = await performTask(inputValue).finally(() => {
+                            if (paused && inFlightCntr < maxInFlight) {
+                                csvPipe.resume();
+                                paused = false;
+                            }
+                        });
 
-            return { ...row, Address: outputValue }; // Replace 'OutputColumn' with the name of your output column in the CSV
-            })
-        );
+                        if (!paused && inFlightCntr >= maxInFlight) {
+                            csvPipe.pause();
+                            paused = true;
+                        }
 
-        // Write the processed data to the output CSV file
-        const outputFilePath = 'output.csv'; // Replace with the path to your output CSV file
-        const csvWriter = createCsvWriter({
-            path: outputFilePath,
-            header: Object.keys(processedData[0]).map((columnName) => ({ id: columnName, title: columnName })),
-        });
+                        return { ...row, Address: outputValue }; // Replace 'OutputColumn' with the name of your output column in the CSV
+                    })
+                );
 
-        await csvWriter.writeRecords(processedData);
+                // Write the processed data to the output CSV file
+                const outputFilePath = 'output.csv'; // Replace with the path to your output CSV file
+                const csvWriter = createCsvWriter({
+                    path: outputFilePath,
+                    header: Object.keys(processedData[0]).map((columnName) => ({ id: columnName, title: columnName })),
+                });
 
-        await browser.close();
-        });
+                await csvWriter.writeRecords(processedData);
+
+                await browser.close();
+            });
     }
 
     async function performTask(id) {
@@ -53,16 +63,32 @@ const createCsvWriter = require('csv-writer').createObjectCsvWriter;
             const response = await page.goto(url, { waitUntil: 'networkidle2' });
             await page.waitForTimeout(10000);
 
-            await page.waitForSelector('.artibot-closer--J-1d0');
-            const buttonIframe = await page.waitForSelector('.artibot-closer--J-1d0');
-            buttonIframe.click();
+            const chatElement = await page.$('.artibot-closer--J-1d0');
+            if (chatElement) {
+                const isClickable = await page.evaluate((element) => {
+                    const style = window.getComputedStyle(element);
+                    const isHidden = style.display === 'none' || style.visibility !== 'visible';
+                    const isDisabled = element.disabled || element.getAttribute('aria-disabled') === 'true';
+                    const isClickable = !isHidden && !isDisabled;
+                    return isClickable;
+                }, chatElement);
+
+                if (isClickable) {
+                    await chatElement.click();
+                    // console.log('Clicked on the chat element.');
+                } else {
+                    console.log('The chat element is not clickable.');
+                }
+            } else {
+                console.log('The chat element was not found.');
+            }
 
             await page.waitForSelector('input[placeholder="Search by GST Number"]');
             await page.type('input[placeholder="Search by GST Number"]', id);
             await page.waitForFunction(
-            (value) => document.querySelector('input[placeholder="Search by GST Number"]').value === value,
-            {},
-            id
+                (value) => document.querySelector('input[placeholder="Search by GST Number"]').value === value,
+                {},
+                id
             );
             await page.waitForTimeout(3000);
 
@@ -74,11 +100,11 @@ const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 
             // Get the inner text of the third row
             const innerText = await page.$eval('table tr:nth-child(3) td', (row) => row.innerText);
-            
+
             await page.waitForTimeout(1000);
             await page.close();
             return innerText;
-        } catch(e) {
+        } catch (e) {
             console.log(e);
             page.close();
         } finally {

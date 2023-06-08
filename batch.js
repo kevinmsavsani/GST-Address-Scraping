@@ -1,6 +1,7 @@
 const puppeteer = require('puppeteer');
 const fs = require("fs");
 const csv = require('csv-parser');
+const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 
 (async event => {
     const url = 'https://www.mastersindia.co/gst-number-search-and-gstin-verification/';
@@ -8,8 +9,9 @@ const csv = require('csv-parser');
     const maxInFlight = 10;     // set this value to control how many pages run in parallel
     let inFlightCntr = 0;
     let paused = false;
-
-    async function getFile(id) {
+    let processedData = []
+    
+    async function getFile(row, id) {
         try {
             ++inFlightCntr;
             const page = await browser.newPage();
@@ -30,7 +32,7 @@ const csv = require('csv-parser');
               
                 if (isClickable) {
                   await chatElement.click();
-                  console.log('Clicked on the chat element.');
+                //   console.log('Clicked on the chat element.');
                 } else {
                   console.log('The chat element is not clickable.');
                 }
@@ -58,11 +60,10 @@ const csv = require('csv-parser');
             const innerText = await page.$eval('table tr:nth-child(3) td', (row) => row.innerText);
 
             await page.waitForTimeout(1000);
-            console.log(innerText);
+            processedData.push({ ...row, Address: innerText});
             await page.close();
         } catch (e) {
             console.log(e);
-            page.close();
         } finally {
             --inFlightCntr;
         }
@@ -74,7 +75,7 @@ const csv = require('csv-parser');
     csvPipe.on('data', async (row) => {
         let id = row.GSTIN;
 
-        getFile(id).finally(() => {
+        getFile(row, id).finally(() => {
             if (paused && inFlightCntr < maxInFlight) {
                 csvPipe.resume();
                 paused = false;
@@ -85,7 +86,17 @@ const csv = require('csv-parser');
             csvPipe.pause();
             paused = true;
         }
-    }).on('end', () => {
+    }).on('end', async () => {
+        // Write the processed data to the output CSV file
+        const outputFilePath = 'output.csv'; // Replace with the path to your output CSV file
+        const csvWriter = createCsvWriter({
+            path: outputFilePath,
+            header: Object.keys(processedData[0]).map((columnName) => ({ id: columnName, title: columnName })),
+        });
+
+        await csvWriter.writeRecords(processedData);
+
         console.log('CSV file successfully processed');
+        await browser.close();
     });
 })();
