@@ -4,13 +4,15 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "script": "node outputGenerator.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "csv-parser": "^3.0.0",
+    "csv-writer": "^1.6.0",
     "fs": "^0.0.1-security",
     "puppeteer": "^20.5.0"
   }
