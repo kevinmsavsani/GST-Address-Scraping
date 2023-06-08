@@ -77,7 +77,7 @@ const createCsvWriter = require('csv-writer').createObjectCsvWriter;
             await page.waitForTimeout(3000);
             page.setViewport({ width: 1000, height: 1500, deviceScaleFactor: 1 });
             const response = await page.goto(url, { waitUntil: 'networkidle2' });
-            await page.waitForTimeout(10000);
+            await page.waitForTimeout(8000);
 
             const chatElement = await page.$('.artibot-closer--J-1d0');
             if (chatElement) {
@@ -106,7 +106,7 @@ const createCsvWriter = require('csv-writer').createObjectCsvWriter;
                 {},
                 id
             );
-            await page.waitForTimeout(3000);
+            await page.waitForTimeout(2000);
 
             const button = await page.waitForSelector('button span');
             button.click();
@@ -117,7 +117,6 @@ const createCsvWriter = require('csv-writer').createObjectCsvWriter;
             // Get the inner text of the third row
             const innerText = await page.$eval('table tr:nth-child(3) td', (row) => row.innerText);
 
-            await page.waitForTimeout(1000);
             await page.close();
             return innerText;
         } catch (e) {
