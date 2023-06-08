@@ -6,7 +6,38 @@ const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 (async event => {
     const url = 'https://www.mastersindia.co/gst-number-search-and-gstin-verification/';
     const browser = await puppeteer.launch({ headless: false });
-    
+    let data = [];
+    // Function to perform a task on a batch of items and return the result
+    async function performTaskOnBatch(batch) {
+        // Process the data and add output in another column
+        const processedData = await Promise.all(
+            batch.map(async (row) => {
+                const inputValue = row.GSTIN; // Replace 'InputColumn' with the name of your input column in the CSV
+                const outputValue = await performTask(inputValue);
+                return { ...row, Address: outputValue }; // Replace 'OutputColumn' with the name of your output column in the CSV
+            })
+        );
+        // Simulating an asynchronous task using setTimeout
+        await new Promise((resolve) => setTimeout(resolve, 4000));
+
+        // Return the result of the task
+        return processedData;
+    }
+
+    // Function to split an array into batches, perform a task on each batch, and collect the results
+    async function processArrayInBatches(array, batchSize) {
+        const output = [];
+
+        for (let i = 0; i < array.length; i += batchSize) {
+            const batch = array.slice(i, i + batchSize);
+            const result = await performTaskOnBatch(batch);
+            output.push(...result);
+        }
+
+        return output;
+    }
+
+
     async function processDataAndFillCSV() {
         // Read the input CSV file
         const fname = 'example.csv'; // Replace with the path to your input CSV file
@@ -18,23 +49,23 @@ const createCsvWriter = require('csv-writer').createObjectCsvWriter;
             inputData.push(row);
         })
             .on('end', async () => {
-                // Process the data and add output in another column
-                const processedData = await Promise.all(
-                    inputData.map(async (row) => {
-                        const inputValue = row.GSTIN; // Replace 'InputColumn' with the name of your input column in the CSV
-                        const outputValue = await performTask(inputValue);
-                        return { ...row, Address: outputValue }; // Replace 'OutputColumn' with the name of your output column in the CSV
+                await processArrayInBatches(inputData, 20)
+                    .then((outputArray) => {
+                        data = [...data, ...outputArray];
+                        console.log('Processing completed');
                     })
-                );
+                    .catch((error) => {
+                        console.error('Error occurred during processing:', error);
+                    });
 
                 // Write the processed data to the output CSV file
                 const outputFilePath = 'output.csv'; // Replace with the path to your output CSV file
                 const csvWriter = createCsvWriter({
                     path: outputFilePath,
-                    header: Object.keys(processedData[0]).map((columnName) => ({ id: columnName, title: columnName })),
+                    header: Object.keys(data[0]).map((columnName) => ({ id: columnName, title: columnName })),
                 });
 
-                await csvWriter.writeRecords(processedData);
+                await csvWriter.writeRecords(data);
 
                 await browser.close();
             });
