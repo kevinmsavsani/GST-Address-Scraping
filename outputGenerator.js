@@ -6,10 +6,7 @@ const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 (async event => {
     const url = 'https://www.mastersindia.co/gst-number-search-and-gstin-verification/';
     const browser = await puppeteer.launch({ headless: false });
-    const maxInFlight = 10;     // set this value to control how many pages run in parallel
-    let inFlightCntr = 0;
-    let paused = false;
-
+    
     async function processDataAndFillCSV() {
         // Read the input CSV file
         const fname = 'example.csv'; // Replace with the path to your input CSV file
@@ -25,18 +22,7 @@ const createCsvWriter = require('csv-writer').createObjectCsvWriter;
                 const processedData = await Promise.all(
                     inputData.map(async (row) => {
                         const inputValue = row.GSTIN; // Replace 'InputColumn' with the name of your input column in the CSV
-                        const outputValue = await performTask(inputValue).finally(() => {
-                            if (paused && inFlightCntr < maxInFlight) {
-                                csvPipe.resume();
-                                paused = false;
-                            }
-                        });
-
-                        if (!paused && inFlightCntr >= maxInFlight) {
-                            csvPipe.pause();
-                            paused = true;
-                        }
-
+                        const outputValue = await performTask(inputValue);
                         return { ...row, Address: outputValue }; // Replace 'OutputColumn' with the name of your output column in the CSV
                     })
                 );
@@ -56,7 +42,6 @@ const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 
     async function performTask(id) {
         try {
-            ++inFlightCntr;
             const page = await browser.newPage();
             await page.waitForTimeout(3000);
             page.setViewport({ width: 1000, height: 1500, deviceScaleFactor: 1 });
@@ -106,9 +91,6 @@ const createCsvWriter = require('csv-writer').createObjectCsvWriter;
             return innerText;
         } catch (e) {
             console.log(e);
-            page.close();
-        } finally {
-            --inFlightCntr;
         }
     }
 
