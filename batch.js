@@ -5,7 +5,17 @@ const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 
 (async event => {
     const url = 'https://www.mastersindia.co/gst-number-search-and-gstin-verification/';
-    const browser = await puppeteer.launch({ headless: false });
+    const browser = await puppeteer.launch({
+        headless: false,
+        defaultViewport: null,
+        args: ['--start-maximized'],
+        timeout: 0, // Disable default launch timeout
+        slowMo: 20, // Add some delay between actions for stability
+        ignoreHTTPSErrors: true,
+        defaultTimeout: 0, // Disable default timeout for page operations
+        devtools: false,
+        protocolTimeout: 300000, // 5 minutes (in milliseconds) 
+    });
     let data = [];
     // Function to perform a task on a batch of items and return the result
     async function performTaskOnBatch(batch) {
@@ -49,7 +59,7 @@ const createCsvWriter = require('csv-writer').createObjectCsvWriter;
             inputData.push(row);
         })
             .on('end', async () => {
-                await processArrayInBatches(inputData, 20)
+                await processArrayInBatches(inputData, 25)
                     .then((outputArray) => {
                         data = [...data, ...outputArray];
                         console.log('Processing completed');
@@ -77,7 +87,7 @@ const createCsvWriter = require('csv-writer').createObjectCsvWriter;
             await page.waitForTimeout(3000);
             page.setViewport({ width: 1000, height: 1500, deviceScaleFactor: 1 });
             const response = await page.goto(url, { waitUntil: 'networkidle2' });
-            await page.waitForTimeout(8000);
+            await page.waitForTimeout(10000);
 
             const chatElement = await page.$('.artibot-closer--J-1d0');
             if (chatElement) {
@@ -110,7 +120,7 @@ const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 
             const button = await page.waitForSelector('button span');
             button.click();
-            await page.waitForTimeout(3000);
+            await page.waitForTimeout(5000);
 
             await page.waitForSelector('table');
 
