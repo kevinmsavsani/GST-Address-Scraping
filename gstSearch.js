@@ -63,7 +63,7 @@ const createCsvWriter = require('csv-writer').createObjectCsvWriter;
             inputData.push(row);
         })
             .on('end', async () => {
-                await processArrayInBatches(inputData, 25)
+                await processArrayInBatches(inputData, 10)
                     .then((outputArray) => {
                         data = [...data, ...outputArray];
                         console.log('Processing completed');

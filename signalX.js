@@ -4,14 +4,16 @@ const fs = require('fs');
 const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 
 (async event => {
-    const url = 'https://www.mastersindia.co/gst-number-search-and-gstin-verification/';
+    const url = 'https://app.signalx.ai/gstin-verification/';
     const browser = await puppeteer.launch({
         headless: false,
+        defaultViewport: null,
         args: ['--start-maximized'],
         timeout: 0, // Disable default launch timeout
         slowMo: 20, // Add some delay between actions for stability
         ignoreHTTPSErrors: true,
         defaultTimeout: 0, // Disable default timeout for page operations
+        devtools: false,
         protocolTimeout: 300000, // 5 minutes (in milliseconds) 
     });
     let data = [];
@@ -22,15 +24,15 @@ const createCsvWriter = require('csv-writer').createObjectCsvWriter;
             batch.map(async (row) => {
                 const inputValue = row.GSTIN; // Replace 'InputColumn' with the name of your input column in the CSV
                 const outputValue = await performTask(inputValue);
-                const outputArr = outputValue ? outputValue.split(','): [];
-                if(outputArr.length > 5) {
-                    return { ...row, Address: outputValue, City: outputArr[4], State: outputArr[5] };
-                }
-                return { ...row, Address: outputValue, City: '', State: '' }; // Replace 'OutputColumn' with the name of your output column in the CSV
+                // const outputArr = outputValue ? outputValue.split(',') : [];
+                // if (outputArr.length > 5) {
+                //     return { ...row, Address: outputValue, City: outputArr[outputArr.length - 3], State: outputArr[outputArr.length - 2] };
+                // }
+                return { ...row, Address: outputValue }; // Replace 'OutputColumn' with the name of your output column in the CSV
             })
         );
         // Simulating an asynchronous task using setTimeout
-        await new Promise((resolve) => setTimeout(resolve, 4000));
+        await new Promise((resolve) => setTimeout(resolve, 6000));
 
         // Return the result of the task
         return processedData;
@@ -61,7 +63,7 @@ const createCsvWriter = require('csv-writer').createObjectCsvWriter;
             inputData.push(row);
         })
             .on('end', async () => {
-                await processArrayInBatches(inputData, 10)
+                await processArrayInBatches(inputData, 4)
                     .then((outputArray) => {
                         data = [...data, ...outputArray];
                         console.log('Processing completed');
@@ -86,52 +88,20 @@ const createCsvWriter = require('csv-writer').createObjectCsvWriter;
     async function performTask(id) {
         try {
             const page = await browser.newPage();
-            await page.waitForTimeout(3000);
+            await page.waitForTimeout(1000);
             page.setViewport({ width: 1000, height: 1500, deviceScaleFactor: 1 });
-            const response = await page.goto(url, { waitUntil: 'networkidle2' });
-            await page.waitForTimeout(10000);
 
-            const chatElement = await page.$('.artibot-closer--J-1d0');
-            if (chatElement) {
-                const isClickable = await page.evaluate((element) => {
-                    const style = window.getComputedStyle(element);
-                    const isHidden = style.display === 'none' || style.visibility !== 'visible';
-                    const isDisabled = element.disabled || element.getAttribute('aria-disabled') === 'true';
-                    const isClickable = !isHidden && !isDisabled;
-                    return isClickable;
-                }, chatElement);
-
-                if (isClickable) {
-                    await chatElement.click();
-                    // console.log('Clicked on the chat element.');
-                } else {
-                    console.log('The chat element is not clickable.');
-                }
-            } else {
-                console.log('The chat element was not found.');
-            }
-
-            await page.waitForSelector('input[placeholder="Search by GST Number"]');
-            await page.type('input[placeholder="Search by GST Number"]', id);
-            await page.waitForFunction(
-                (value) => document.querySelector('input[placeholder="Search by GST Number"]').value === value,
-                {},
-                id
-            );
+            const response = await page.goto(`${url}${id}`, { waitUntil: 'networkidle2' });
+            
             await page.waitForTimeout(5000);
 
-            await page.waitForSelector('button span');
-            await page.click('button span');
+            await page.waitForSelector('p.MuiTypography-root.MuiTypography-body1');
 
-            await page.waitForTimeout(5000);
-
-            await page.waitForSelector('table');
-
-            // Get the inner text of the third row
-            const innerText = await page.$eval('table tr:nth-child(3) td', (row) => row.innerText);
+            const addressElement = await page.$('div.MuiGrid-item:nth-child(7) p.MuiTypography-body1');
+            const address = await page.evaluate(element => element.textContent, addressElement);
 
             await page.close();
-            return innerText;
+            return address;
         } catch (e) {
             console.log(e);
         }
