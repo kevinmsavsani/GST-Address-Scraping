@@ -62,7 +62,6 @@ const csv = require('csv-parser');
             await page.close();
         } catch (e) {
             console.log(e);
-            page.close();
         } finally {
             --inFlightCntr;
         }
