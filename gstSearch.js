@@ -63,7 +63,7 @@ const createCsvWriter = require('csv-writer').createObjectCsvWriter;
             inputData.push(row);
         })
             .on('end', async () => {
-                await processArrayInBatches(inputData, 10)
+                await processArrayInBatches(inputData, 5)
                     .then((outputArray) => {
                         data = [...data, ...outputArray];
                         console.log('Processing completed');
@@ -91,7 +91,7 @@ const createCsvWriter = require('csv-writer').createObjectCsvWriter;
             await page.waitForTimeout(1000);
             page.setViewport({ width: 1000, height: 1500, deviceScaleFactor: 1 });
             const response = await page.goto(url, { waitUntil: 'networkidle2' });
-            await page.waitForTimeout(1000);
+            await page.waitForTimeout(3000);
 
             await page.waitForSelector('input[placeholder="Enter GST Number"]');
             await page.type('input[placeholder="Enter GST Number"]', id);
@@ -100,7 +100,7 @@ const createCsvWriter = require('csv-writer').createObjectCsvWriter;
                 {},
                 id
             );
-            await page.waitForTimeout(5000);
+            await page.waitForTimeout(3000);
 
             await page.evaluate(() => {
                 const buttons = Array.from(document.querySelectorAll('button.btn.btn-primary'));

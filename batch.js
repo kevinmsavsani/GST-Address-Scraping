@@ -6,7 +6,9 @@ const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 (async event => {
     const url = 'https://www.mastersindia.co/gst-number-search-and-gstin-verification/';
     const browser = await puppeteer.launch({
+        executablePath: '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser',
         headless: false,
+        defaultViewport: null,
         args: ['--start-maximized'],
         timeout: 0, // Disable default launch timeout
         slowMo: 20, // Add some delay between actions for stability
@@ -61,7 +63,7 @@ const createCsvWriter = require('csv-writer').createObjectCsvWriter;
             inputData.push(row);
         })
             .on('end', async () => {
-                await processArrayInBatches(inputData, 10)
+                await processArrayInBatches(inputData, 1)
                     .then((outputArray) => {
                         data = [...data, ...outputArray];
                         console.log('Processing completed');
